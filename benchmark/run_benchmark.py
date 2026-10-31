@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import csv
 import json
+import math
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -75,13 +77,36 @@ def attribute_score(answer: dict, guess: dict, stat_ranges: dict[str, tuple[int,
     return 0.0
 
 
-def relationship_score(answer: dict, guess: dict, scope: str) -> float:
+def move_relationship_scores(pokemon: list[dict], scope: str, floor: float) -> dict[str, float]:
+    """Return a scoped, rarity-adjusted score for each learnable move.
+
+    A move learned by one eligible Pokemon receives 1.0. A move learned by
+    every eligible Pokemon receives `floor`; other moves fall smoothly between
+    those values on a logarithmic curve. This reduces generic TM-style moves
+    without discarding factual learnset relationships.
+    """
+    eligible_pokemon = [entity for entity in pokemon if eligible(entity, scope)]
+    frequencies: Counter[str] = Counter()
+    for entity in eligible_pokemon:
+        for move, generations in entity["move_learnset_generations"].items():
+            if scope == "all-goes" or any(generation <= 5 for generation in generations):
+                frequencies[move] += 1
+    total = len(eligible_pokemon)
+    denominator = math.log((total + 1) / 2)
+    return {
+        move: floor + (1 - floor) * math.log((total + 1) / (frequency + 1)) / denominator
+        for move, frequency in frequencies.items()
+    }
+
+
+def relationship_score(answer: dict, guess: dict, scope: str, move_scores: dict[str, float]) -> float:
     if guess["category"] == "pokemon":
         return float(bool(set(answer["evolution_family"]) & set(guess["evolution_family"])))
     if guess["category"] == "move":
         if scope == "all-goes":
-            return float(guess["name"] in answer["moves"])
-        return float(any(generation <= 5 for generation in answer["move_learnset_generations"].get(guess["name"], [])))
+            return move_scores.get(guess["name"], 0.0) if guess["name"] in answer["moves"] else 0.0
+        is_learnable = any(generation <= 5 for generation in answer["move_learnset_generations"].get(guess["name"], []))
+        return move_scores.get(guess["name"], 0.0) if is_learnable else 0.0
     return float(guess["name"] in answer["abilities"])
 
 
@@ -119,6 +144,7 @@ def main() -> None:
 
     for scope in ("all-goes", "gen-1-5"):
         candidates = [entity for entity in all_entities if eligible(entity, scope)]
+        move_scores = move_relationship_scores(pokemon, scope, config["move_relationship"]["floor"])
         rows: list[dict] = []
         for answer_name in config["answers"]:
             answer = answers[answer_name]
@@ -127,7 +153,7 @@ def main() -> None:
             semantic = cosine_rows(vector_by_id[answer["id"]], np.asarray([vector_by_id[c["id"]] for c in candidates]))
             scored = []
             for candidate, semantic_score in zip(candidates, semantic):
-                relation = relationship_score(answer, candidate, scope)
+                relation = relationship_score(answer, candidate, scope, move_scores)
                 attribute = attribute_score(answer, candidate, stat_ranges)
                 final = weights["semantic"] * float(semantic_score) + weights["relationship"] * relation + weights["attribute"] * attribute
                 scored.append({
@@ -140,7 +166,7 @@ def main() -> None:
                 row["rank"] = rank
             rows.extend(scored)
 
-        report = REPORTS / f"{scope}.csv"
+        report = REPORTS / f"{scope}-{config['profile']}.csv"
         with report.open("w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=["answer", "rank", "guess", "category", "semantic", "relationship", "attribute", "final", "guess_id"])
             writer.writeheader()

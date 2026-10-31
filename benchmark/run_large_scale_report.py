@@ -19,6 +19,7 @@ from run_benchmark import (
     cosine_rows,
     document,
     eligible,
+    move_relationship_scores,
     move_document,
     pokemon_document,
     relationship_score,
@@ -44,11 +45,11 @@ def percentile(values: list[int], value: float) -> int:
     return int(round(float(np.percentile(values, value))))
 
 
-def rank_answer(answer: dict, candidates: list[dict], candidate_vectors: np.ndarray, vector_by_id: dict[str, np.ndarray], stat_ranges: dict, weights: dict, scope: str) -> list[dict]:
+def rank_answer(answer: dict, candidates: list[dict], candidate_vectors: np.ndarray, vector_by_id: dict[str, np.ndarray], stat_ranges: dict, weights: dict, scope: str, move_scores: dict[str, float]) -> list[dict]:
     semantic_scores = cosine_rows(vector_by_id[answer["id"]], candidate_vectors)
     rows = []
     for candidate, semantic in zip(candidates, semantic_scores):
-        relation = relationship_score(answer, candidate, scope)
+        relation = relationship_score(answer, candidate, scope, move_scores)
         attribute = attribute_score(answer, candidate, stat_ranges)
         score = weights["semantic"] * float(semantic) + weights["relationship"] * relation + weights["attribute"] * attribute
         rows.append({
@@ -61,10 +62,11 @@ def rank_answer(answer: dict, candidates: list[dict], candidate_vectors: np.ndar
     return rows
 
 
-def report_scope(scope: str, pokemon: list[dict], all_entities: list[dict], vectors: np.ndarray, vector_by_id: dict[str, np.ndarray], stat_ranges: dict, weights: dict) -> str:
+def report_scope(scope: str, pokemon: list[dict], all_entities: list[dict], vectors: np.ndarray, vector_by_id: dict[str, np.ndarray], stat_ranges: dict, weights: dict, move_floor: float) -> str:
     candidates = [entity for entity in all_entities if eligible(entity, scope)]
     candidate_vectors = np.asarray([vector_by_id[entity["id"]] for entity in candidates])
     answers = [entity for entity in pokemon if eligible(entity, scope)]
+    move_scores = move_relationship_scores(pokemon, scope, move_floor)
     evolution_ranks: list[int] = []
     ability_ranks: list[int] = []
     move_ranks: list[int] = []
@@ -73,7 +75,7 @@ def report_scope(scope: str, pokemon: list[dict], all_entities: list[dict], vect
     rank_uniqueness_failures = 0
 
     for index, answer in enumerate(answers, start=1):
-        rows = rank_answer(answer, candidates, candidate_vectors, vector_by_id, stat_ranges, weights, scope)
+        rows = rank_answer(answer, candidates, candidate_vectors, vector_by_id, stat_ranges, weights, scope, move_scores)
         if len({row["rank"] for row in rows}) != len(rows):
             rank_uniqueness_failures += 1
         by_id = {row["id"]: row for row in rows}
@@ -146,15 +148,15 @@ def main() -> None:
     stat_ranges = {key: (min(p["stats"][key] for p in pokemon), max(p["stats"][key] for p in pokemon)) for key in pokemon[0]["stats"]}
     REPORTS.mkdir(exist_ok=True)
     report = [
-        "# PokeTox Daily Poketexto — large-scale baseline report",
+        f"# PokeTox Daily Poketexto — large-scale {config['profile']} report",
         "",
-        "This is a diagnostic run of the current baseline: `0.65 × semantic + 0.25 × direct relationship + 0.10 × simple attributes`. It is not a quality score or a final ranking model.",
+        "This is a diagnostic run using rarity-adjusted direct move relationships. A move learned by many Pokemon receives less relationship credit than a rare learnset relationship. It is not a final ranking model.",
         "",
     ]
     for scope in ("all-goes", "gen-1-5"):
-        report.append(report_scope(scope, pokemon, all_entities, vectors, vector_by_id, stat_ranges, config["weights"]))
+        report.append(report_scope(scope, pokemon, all_entities, vectors, vector_by_id, stat_ranges, config["weights"], config["move_relationship"]["floor"]))
         report.append("")
-    output = REPORTS / "large-scale-baseline.md"
+    output = REPORTS / f"large-scale-{config['profile']}.md"
     output.write_text("\n".join(report), encoding="utf-8")
     print(f"Wrote {output}", flush=True)
 

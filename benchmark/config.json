@@ -17,6 +17,11 @@
     "tinkaton"
   ],
   "model": "all-MiniLM-L6-v2",
+  "profile": "move-tuned",
+  "move_relationship": {
+    "mode": "rarity-adjusted",
+    "floor": 0.6
+  },
   "weights": {
     "semantic": 0.65,
     "relationship": 0.25,
