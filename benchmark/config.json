@@ -16,22 +16,26 @@
     "corviknight",
     "tinkaton"
   ],
-  "model": "all-MiniLM-L6-v2",
-  "profile": "learnset-normalized",
+  "profile": "structured-facts",
   "move_relationship": {
     "mode": "rarity-adjusted",
     "floor": 0.6
   },
-  "type_relationship_score": 0.4,
-  "matching_move_type_attribute_score": 0.4,
   "learnset_breadth": {
     "reference_move_count": 40,
     "floor": 0.65
   },
-  "weights": {
-    "semantic": 0.65,
-    "relationship": 0.25,
-    "attribute": 0.10
+  "scoring": {
+    "exact_answer": 2.0,
+    "evolution_family": 1.0,
+    "shared_type_per_type": 0.20,
+    "stat_tiebreaker": 0.04,
+    "direct_type": 0.38,
+    "direct_ability": 0.34,
+    "learned_move_base": 0.18,
+    "learned_move_range": 0.16,
+    "off_type_move_base": 0.08,
+    "off_type_move_range": 0.08
   },
   "top_results": 50
 }
