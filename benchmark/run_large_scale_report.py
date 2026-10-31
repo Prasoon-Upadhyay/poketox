@@ -45,11 +45,11 @@ def percentile(values: list[int], value: float) -> int:
     return int(round(float(np.percentile(values, value))))
 
 
-def rank_answer(answer: dict, candidates: list[dict], candidate_vectors: np.ndarray, vector_by_id: dict[str, np.ndarray], stat_ranges: dict, weights: dict, scope: str, move_scores: dict[str, float]) -> list[dict]:
+def rank_answer(answer: dict, candidates: list[dict], candidate_vectors: np.ndarray, vector_by_id: dict[str, np.ndarray], stat_ranges: dict, weights: dict, scope: str, move_scores: dict[str, float], type_score: float) -> list[dict]:
     semantic_scores = cosine_rows(vector_by_id[answer["id"]], candidate_vectors)
     rows = []
     for candidate, semantic in zip(candidates, semantic_scores):
-        relation = relationship_score(answer, candidate, scope, move_scores)
+        relation = relationship_score(answer, candidate, scope, move_scores, type_score)
         attribute = attribute_score(answer, candidate, stat_ranges)
         score = weights["semantic"] * float(semantic) + weights["relationship"] * relation + weights["attribute"] * attribute
         rows.append({
@@ -62,20 +62,21 @@ def rank_answer(answer: dict, candidates: list[dict], candidate_vectors: np.ndar
     return rows
 
 
-def report_scope(scope: str, pokemon: list[dict], all_entities: list[dict], vectors: np.ndarray, vector_by_id: dict[str, np.ndarray], stat_ranges: dict, weights: dict, move_floor: float) -> str:
+def report_scope(scope: str, pokemon: list[dict], all_entities: list[dict], vectors: np.ndarray, vector_by_id: dict[str, np.ndarray], stat_ranges: dict, weights: dict, move_floor: float, type_score: float) -> str:
     candidates = [entity for entity in all_entities if eligible(entity, scope)]
     candidate_vectors = np.asarray([vector_by_id[entity["id"]] for entity in candidates])
     answers = [entity for entity in pokemon if eligible(entity, scope)]
     move_scores = move_relationship_scores(pokemon, scope, move_floor)
     evolution_ranks: list[int] = []
     ability_ranks: list[int] = []
+    type_ranks: list[int] = []
     move_ranks: list[int] = []
     top25_categories: Counter[str] = Counter()
     samples: dict[str, list[dict]] = {}
     rank_uniqueness_failures = 0
 
     for index, answer in enumerate(answers, start=1):
-        rows = rank_answer(answer, candidates, candidate_vectors, vector_by_id, stat_ranges, weights, scope, move_scores)
+        rows = rank_answer(answer, candidates, candidate_vectors, vector_by_id, stat_ranges, weights, scope, move_scores, type_score)
         if len({row["rank"] for row in rows}) != len(rows):
             rank_uniqueness_failures += 1
         by_id = {row["id"]: row for row in rows}
@@ -86,6 +87,10 @@ def report_scope(scope: str, pokemon: list[dict], all_entities: list[dict], vect
             row = by_id.get(f"ability:{ability}")
             if row:
                 ability_ranks.append(row["rank"])
+        for pokemon_type in answer["types"]:
+            row = by_id.get(f"type:{pokemon_type}")
+            if row:
+                type_ranks.append(row["rank"])
         for move, generations in answer["move_learnset_generations"].items():
             if scope == "all-goes" or any(generation <= 5 for generation in generations):
                 row = by_id.get(f"move:{move}")
@@ -114,6 +119,7 @@ def report_scope(scope: str, pokemon: list[dict], all_entities: list[dict], vect
         "",
         distribution("Other members of the answer's evolution family", evolution_ranks),
         distribution("Abilities the answer can have", ability_ranks),
+        distribution("Types the answer has", type_ranks),
         distribution("Moves the answer can learn", move_ranks),
         "",
         "### Top-25 composition",
@@ -121,6 +127,7 @@ def report_scope(scope: str, pokemon: list[dict], all_entities: list[dict], vect
         f"- Pokémon: **{top25_categories['pokemon']:,}** ({top25_categories['pokemon'] / (len(answers) * 25):.1%})",
         f"- Moves: **{top25_categories['move']:,}** ({top25_categories['move'] / (len(answers) * 25):.1%})",
         f"- Abilities: **{top25_categories['ability']:,}** ({top25_categories['ability'] / (len(answers) * 25):.1%})",
+        f"- Types: **{top25_categories['type']:,}** ({top25_categories['type'] / (len(answers) * 25):.1%})",
         "",
         "### Sample rankings",
         "",
@@ -154,7 +161,7 @@ def main() -> None:
         "",
     ]
     for scope in ("all-goes", "gen-1-5"):
-        report.append(report_scope(scope, pokemon, all_entities, vectors, vector_by_id, stat_ranges, config["weights"], config["move_relationship"]["floor"]))
+        report.append(report_scope(scope, pokemon, all_entities, vectors, vector_by_id, stat_ranges, config["weights"], config["move_relationship"]["floor"], config["type_relationship_score"]))
         report.append("")
     output = REPORTS / f"large-scale-{config['profile']}.md"
     output.write_text("\n".join(report), encoding="utf-8")

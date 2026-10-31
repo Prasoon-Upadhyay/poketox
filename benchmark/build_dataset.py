@@ -156,11 +156,20 @@ def normalize_collection(kind: str) -> list[dict]:
                 "accuracy": source["accuracy"] or 0,
                 "description": english_text(source["flavor_text_entries"], "flavor_text") or english_text(source["effect_entries"], "short_effect"),
             }
-        else:
+        elif kind == "ability":
             record = {
                 "id": f"ability:{source['name']}", "name": source["name"], "category": "ability",
                 "generation": generation,
                 "description": english_text(source["flavor_text_entries"], "flavor_text") or english_text(source["effect_entries"], "short_effect"),
+            }
+        else:
+            # Unknown and Shadow are placeholders; Stellar is a Gen IX Tera Type,
+            # not an innate species type for this MVP's normal type-guess pool.
+            if source["name"] in {"unknown", "shadow", "stellar"}:
+                continue
+            record = {
+                "id": f"type:{source['name']}", "name": source["name"], "category": "type",
+                "generation": get_id(source["generation"]["url"]),
             }
         records.append(record)
     return records
@@ -180,8 +189,10 @@ def main() -> None:
     moves = normalize_collection("move")
     print("Downloading/caching abilities...")
     abilities = normalize_collection("ability")
-    save_json(DATA / "entities.json", {"pokemon": pokemon, "moves": moves, "abilities": abilities})
-    print(f"Wrote {len(pokemon)} Pokemon, {len(moves)} moves, and {len(abilities)} abilities to {DATA / 'entities.json'}")
+    print("Downloading/caching types...")
+    types = normalize_collection("type")
+    save_json(DATA / "entities.json", {"pokemon": pokemon, "moves": moves, "abilities": abilities, "types": types})
+    print(f"Wrote {len(pokemon)} Pokemon, {len(moves)} moves, {len(abilities)} abilities, and {len(types)} types to {DATA / 'entities.json'}")
 
 
 if __name__ == "__main__":

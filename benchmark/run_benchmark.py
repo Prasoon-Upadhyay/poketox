@@ -48,8 +48,12 @@ def ability_document(entity: dict) -> str:
     )
 
 
+def type_document(entity: dict) -> str:
+    return f"{title(entity['name'])} is a Pokemon type introduced in Generation {entity['generation']}."
+
+
 def document(entity: dict) -> str:
-    return {"pokemon": pokemon_document, "move": move_document, "ability": ability_document}[entity["category"]](entity)
+    return {"pokemon": pokemon_document, "move": move_document, "ability": ability_document, "type": type_document}[entity["category"]](entity)
 
 
 def cosine_rows(query: np.ndarray, matrix: np.ndarray) -> np.ndarray:
@@ -99,7 +103,7 @@ def move_relationship_scores(pokemon: list[dict], scope: str, floor: float) -> d
     }
 
 
-def relationship_score(answer: dict, guess: dict, scope: str, move_scores: dict[str, float]) -> float:
+def relationship_score(answer: dict, guess: dict, scope: str, move_scores: dict[str, float], type_score: float) -> float:
     if guess["category"] == "pokemon":
         return float(bool(set(answer["evolution_family"]) & set(guess["evolution_family"])))
     if guess["category"] == "move":
@@ -107,6 +111,8 @@ def relationship_score(answer: dict, guess: dict, scope: str, move_scores: dict[
             return move_scores.get(guess["name"], 0.0) if guess["name"] in answer["moves"] else 0.0
         is_learnable = any(generation <= 5 for generation in answer["move_learnset_generations"].get(guess["name"], []))
         return move_scores.get(guess["name"], 0.0) if is_learnable else 0.0
+    if guess["category"] == "type":
+        return type_score if guess["name"] in answer["types"] else 0.0
     return float(guess["name"] in answer["abilities"])
 
 
@@ -153,7 +159,7 @@ def main() -> None:
             semantic = cosine_rows(vector_by_id[answer["id"]], np.asarray([vector_by_id[c["id"]] for c in candidates]))
             scored = []
             for candidate, semantic_score in zip(candidates, semantic):
-                relation = relationship_score(answer, candidate, scope, move_scores)
+                relation = relationship_score(answer, candidate, scope, move_scores, config["type_relationship_score"])
                 attribute = attribute_score(answer, candidate, stat_ranges)
                 final = weights["semantic"] * float(semantic_score) + weights["relationship"] * relation + weights["attribute"] * attribute
                 scored.append({

@@ -1,13 +1,13 @@
 # Daily Poketexto benchmark
 
-This is the first, deliberately simple ranking benchmark for PokeTox. It generates one local embedding per entity and ranks every eligible Pokemon, move, and ability for a small set of mystery Pokemon.
+This is the first, deliberately simple ranking benchmark for PokeTox. It generates one local embedding per entity and ranks every eligible Pokemon, move, ability, and type for a small set of mystery Pokemon.
 
 ## Rules under test
 
 `score = 0.65 * semantic + 0.25 * relationship + 0.10 * attribute`
 
 - Semantic: cosine similarity of one `all-MiniLM-L6-v2` embedding per entity.
-- Relationship: direct evolution-family, ability ownership, or version-valid move learnability.
+- Relationship: direct evolution-family, ability ownership, exact Pokemon type, or version-valid move learnability.
 - Attributes: type/stat similarity for Pokemon; a direct type match for moves; none for abilities.
 - The answer is forcibly rank `#1`. Equal scores are broken deterministically, so every eligible entity has one unique rank.
 
