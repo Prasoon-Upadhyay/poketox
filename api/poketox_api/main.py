@@ -7,8 +7,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .schemas import DailyGameResponse, ErrorResponse, GiveUpResponse, GuessResponse, Suggestion
-from .service import TEST_GENERATIONS, DailyGame
+from .schemas import DailyGameResponse, ErrorResponse, GenerationSelection, GiveUpResponse, GuessResponse, Suggestion
+from .service import DailyGame
 
 
 @asynccontextmanager
@@ -34,12 +34,12 @@ async def http_error(_: Request, exc: HTTPException) -> JSONResponse:
 @app.get(
     "/health",
     summary="Check API health",
-    description="Returns the active ranking profile and configured generation set. It never exposes the daily answer.",
+    description="Returns the active ranking profile and current generation set. It never exposes the daily answer.",
 )
 def health(request: Request) -> dict:
     """Report readiness and the active non-semantic ranking profile."""
     game: DailyGame = request.app.state.daily_game
-    return {"status": "ok", "ranking_profile": "structured-facts-v6", "generations": TEST_GENERATIONS}
+    return {"status": "ok", "ranking_profile": "structured-facts-v6", "generations": sorted(game.generations)}
 
 
 @app.get(
@@ -54,15 +54,28 @@ def daily(request: Request) -> dict:
 
 
 @app.post(
+    "/api/v1/daily/start",
+    response_model=DailyGameResponse,
+    summary="Start a Poketexto game for selected generations",
+    description="Accepts the generation selection from the frontend, chooses a random eligible Pokemon, and builds that game's rank table in memory.",
+)
+def start_daily(request: Request, selection: GenerationSelection) -> dict:
+    """Configure and start a game from the caller's selected generations."""
+    game: DailyGame = request.app.state.daily_game
+    game.refresh(selection.generations)
+    return game.public_metadata()
+
+
+@app.post(
     "/api/v1/daily/reset",
     response_model=DailyGameResponse,
     summary="Reset a client's Daily Poketexto session",
-    description="Chooses a new random Pokémon from the configured test generations, recalculates rankings, and returns its new public game metadata.",
+    description="Accepts a generation selection, chooses a new random eligible Pokémon, recalculates rankings, and returns public game metadata.",
 )
-def reset_daily(request: Request) -> dict:
+def reset_daily(request: Request, selection: GenerationSelection) -> dict:
     """Start a fresh game with a newly selected random target."""
     game: DailyGame = request.app.state.daily_game
-    game.refresh()
+    game.refresh(selection.generations)
     return game.public_metadata()
 
 

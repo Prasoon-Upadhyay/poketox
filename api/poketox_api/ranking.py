@@ -28,8 +28,7 @@ def eligible(entity: dict, allowed_generations: set[int]) -> bool:
     return entity["generation"] in allowed_generations
 
 
-def move_relationship_scores(pokemon: list[dict], allowed_generations: set[int]) -> dict[str, float]:
-    eligible_pokemon = [entity for entity in pokemon if eligible(entity, allowed_generations)]
+def move_relationship_scores(eligible_pokemon: list[dict], allowed_generations: set[int]) -> dict[str, float]:
     frequencies: Counter[str] = Counter()
     for entity in eligible_pokemon:
         for move, move_generations in entity["move_learnset_generations"].items():
@@ -42,12 +41,12 @@ def move_relationship_scores(pokemon: list[dict], allowed_generations: set[int])
     }
 
 
-def rank_answer(answer: dict, candidates: list[dict], pokemon: list[dict], allowed_generations: set[int]) -> dict[str, dict]:
+def rank_answer(answer: dict, candidates: list[dict], eligible_pokemon: list[dict], allowed_generations: set[int]) -> dict[str, dict]:
     stat_ranges = {
-        key: (min(entity["stats"][key] for entity in pokemon), max(entity["stats"][key] for entity in pokemon))
-        for key in pokemon[0]["stats"]
+        key: (min(entity["stats"][key] for entity in eligible_pokemon), max(entity["stats"][key] for entity in eligible_pokemon))
+        for key in eligible_pokemon[0]["stats"]
     }
-    move_scores = move_relationship_scores(pokemon, allowed_generations)
+    move_scores = move_relationship_scores(eligible_pokemon, allowed_generations)
     learnset_count = sum(
         1 for move_generations in answer["move_learnset_generations"].values()
         if any(generation in allowed_generations for generation in move_generations)

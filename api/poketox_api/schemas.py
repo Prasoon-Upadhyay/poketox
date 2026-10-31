@@ -35,6 +35,11 @@ class ErrorResponse(BaseModel):
     message: str
 
 
+class GenerationSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    generations: list[int] = Field(min_length=1, max_length=9)
+
+
 class DailyGameResponse(BaseModel):
     puzzle_id: str
     generations: list[int]
