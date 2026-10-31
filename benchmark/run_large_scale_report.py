@@ -45,12 +45,12 @@ def percentile(values: list[int], value: float) -> int:
     return int(round(float(np.percentile(values, value))))
 
 
-def rank_answer(answer: dict, candidates: list[dict], candidate_vectors: np.ndarray, vector_by_id: dict[str, np.ndarray], stat_ranges: dict, weights: dict, scope: str, move_scores: dict[str, float], type_score: float) -> list[dict]:
+def rank_answer(answer: dict, candidates: list[dict], candidate_vectors: np.ndarray, vector_by_id: dict[str, np.ndarray], stat_ranges: dict, weights: dict, scope: str, move_scores: dict[str, float], type_score: float, matching_move_type_score: float) -> list[dict]:
     semantic_scores = cosine_rows(vector_by_id[answer["id"]], candidate_vectors)
     rows = []
     for candidate, semantic in zip(candidates, semantic_scores):
         relation = relationship_score(answer, candidate, scope, move_scores, type_score)
-        attribute = attribute_score(answer, candidate, stat_ranges)
+        attribute = attribute_score(answer, candidate, stat_ranges, matching_move_type_score)
         score = weights["semantic"] * float(semantic) + weights["relationship"] * relation + weights["attribute"] * attribute
         rows.append({
             "id": candidate["id"], "name": candidate["name"], "category": candidate["category"],
@@ -62,7 +62,7 @@ def rank_answer(answer: dict, candidates: list[dict], candidate_vectors: np.ndar
     return rows
 
 
-def report_scope(scope: str, pokemon: list[dict], all_entities: list[dict], vectors: np.ndarray, vector_by_id: dict[str, np.ndarray], stat_ranges: dict, weights: dict, move_floor: float, type_score: float) -> str:
+def report_scope(scope: str, pokemon: list[dict], all_entities: list[dict], vectors: np.ndarray, vector_by_id: dict[str, np.ndarray], stat_ranges: dict, weights: dict, move_floor: float, type_score: float, matching_move_type_score: float) -> str:
     candidates = [entity for entity in all_entities if eligible(entity, scope)]
     candidate_vectors = np.asarray([vector_by_id[entity["id"]] for entity in candidates])
     answers = [entity for entity in pokemon if eligible(entity, scope)]
@@ -76,7 +76,7 @@ def report_scope(scope: str, pokemon: list[dict], all_entities: list[dict], vect
     rank_uniqueness_failures = 0
 
     for index, answer in enumerate(answers, start=1):
-        rows = rank_answer(answer, candidates, candidate_vectors, vector_by_id, stat_ranges, weights, scope, move_scores, type_score)
+        rows = rank_answer(answer, candidates, candidate_vectors, vector_by_id, stat_ranges, weights, scope, move_scores, type_score, matching_move_type_score)
         if len({row["rank"] for row in rows}) != len(rows):
             rank_uniqueness_failures += 1
         by_id = {row["id"]: row for row in rows}
@@ -137,7 +137,7 @@ def report_scope(scope: str, pokemon: list[dict], all_entities: list[dict], vect
             continue
         lines.extend([f"#### {title(answer)}", "", "| Rank | Guess | Category | Score | Semantic | Relation | Attribute |", "|---:|---|---|---:|---:|---:|---:|"])
         for row in samples[answer]:
-            lines.append(f"| {row['rank']} | {title(row['name'])} | {row['category']} | {row['score']:.3f} | {row['semantic']:.3f} | {row['relationship']:.0f} | {row['attribute']:.3f} |")
+            lines.append(f"| {row['rank']} | {title(row['name'])} | {row['category']} | {row['score']:.3f} | {row['semantic']:.3f} | {row['relationship']:.2f} | {row['attribute']:.3f} |")
         lines.append("")
     return "\n".join(lines)
 
@@ -161,7 +161,7 @@ def main() -> None:
         "",
     ]
     for scope in ("all-goes", "gen-1-5"):
-        report.append(report_scope(scope, pokemon, all_entities, vectors, vector_by_id, stat_ranges, config["weights"], config["move_relationship"]["floor"], config["type_relationship_score"]))
+        report.append(report_scope(scope, pokemon, all_entities, vectors, vector_by_id, stat_ranges, config["weights"], config["move_relationship"]["floor"], config["type_relationship_score"], config["matching_move_type_attribute_score"]))
         report.append("")
     output = REPORTS / f"large-scale-{config['profile']}.md"
     output.write_text("\n".join(report), encoding="utf-8")

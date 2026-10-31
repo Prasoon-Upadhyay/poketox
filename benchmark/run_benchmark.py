@@ -70,14 +70,14 @@ def stat_similarity(answer: dict, guess: dict, stat_ranges: dict[str, tuple[int,
     return max(0.0, 1.0 - float(np.mean(values)))
 
 
-def attribute_score(answer: dict, guess: dict, stat_ranges: dict[str, tuple[int, int]]) -> float:
+def attribute_score(answer: dict, guess: dict, stat_ranges: dict[str, tuple[int, int]], matching_move_type_score: float) -> float:
     if guess["category"] == "pokemon":
         shared_types = len(set(answer["types"]) & set(guess["types"]))
         type_score = shared_types / max(len(set(answer["types"]) | set(guess["types"])), 1)
         family_score = float(bool(set(answer["evolution_family"]) & set(guess["evolution_family"])))
         return 0.45 * type_score + 0.35 * family_score + 0.20 * stat_similarity(answer, guess, stat_ranges)
     if guess["category"] == "move":
-        return float(guess["type"] in answer["types"])
+        return matching_move_type_score if guess["type"] in answer["types"] else 0.0
     return 0.0
 
 
@@ -160,7 +160,7 @@ def main() -> None:
             scored = []
             for candidate, semantic_score in zip(candidates, semantic):
                 relation = relationship_score(answer, candidate, scope, move_scores, config["type_relationship_score"])
-                attribute = attribute_score(answer, candidate, stat_ranges)
+                attribute = attribute_score(answer, candidate, stat_ranges, config["matching_move_type_attribute_score"])
                 final = weights["semantic"] * float(semantic_score) + weights["relationship"] * relation + weights["attribute"] * attribute
                 scored.append({
                     "answer": answer["name"], "guess": candidate["name"], "guess_id": candidate["id"],

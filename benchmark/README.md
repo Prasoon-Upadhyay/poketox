@@ -8,7 +8,7 @@ This is the first, deliberately simple ranking benchmark for PokeTox. It generat
 
 - Semantic: cosine similarity of one `all-MiniLM-L6-v2` embedding per entity.
 - Relationship: direct evolution-family, ability ownership, exact Pokemon type, or version-valid move learnability.
-- Attributes: type/stat similarity for Pokemon; a direct type match for moves; none for abilities.
+- Attributes: type/stat similarity for Pokemon; a deliberately modest same-type bonus for moves; none for abilities.
 - The answer is forcibly rank `#1`. Equal scores are broken deterministically, so every eligible entity has one unique rank.
 
 `data/` and `reports/` are generated locally and intentionally ignored by Git.
