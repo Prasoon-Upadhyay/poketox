@@ -32,3 +32,14 @@ The benchmark uses a rarity-adjusted learnset score: broadly learnable moves ret
 It also normalizes by the answer Pokémon's learnset breadth: a Pokémon that can learn hundreds of moves does not give every move the same relationship strength as a Pokémon with a short, distinctive learnset.
 
 Every non-zero result carries a player-readable reason, such as `same evolution family`, `shares Rock and Ground`, `ability of target`, or `same-type learned move; rarity-adjusted`. Off-type learned moves remain valid but are deliberately distant hints.
+
+## Test API
+
+Run a local test server with one random Gen 1-5 target selected at startup:
+
+```powershell
+python benchmark/test_api.py
+```
+
+- `GET /api/test/target` reveals the selected target for testing only.
+- `POST /api/guess` accepts a selected entity such as `{"id":"move:psychic","category":"move","name":"Psychic"}` and returns its integer rank and reason. The server uses `id` as the authoritative identity; `category` and `name` are display metadata. `{"guess":"Onix"}` remains available for manual testing, with `category` used to resolve ambiguous names.
