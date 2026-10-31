@@ -1,0 +1,2 @@
+const colours: Record<string, string> = { normal:'#a8a77a',fire:'#ee8130',water:'#6390f0',electric:'#f7d02c',grass:'#7ac74c',ice:'#96d9d6',fighting:'#c22e28',poison:'#a33ea1',ground:'#e2bf65',flying:'#a98ff3',psychic:'#f95587',bug:'#a6b91a',rock:'#b6a136',ghost:'#735797',dragon:'#6f35fc',dark:'#705746',steel:'#b7b7ce',fairy:'#d685ad' }
+export function TypeBadge({ type }: { type: string }) { return <span className="rounded-sm border border-black/20 px-1.5 py-1 text-[9px] font-bold uppercase text-white" style={{ backgroundColor: colours[type] ?? '#667085' }}>{type}</span> }
