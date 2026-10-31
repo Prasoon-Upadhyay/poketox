@@ -103,14 +103,30 @@ def move_relationship_scores(pokemon: list[dict], scope: str, floor: float) -> d
     }
 
 
-def relationship_score(answer: dict, guess: dict, scope: str, move_scores: dict[str, float], type_score: float) -> float:
+def learnset_breadth_adjustment(answer: dict, scope: str, reference_move_count: int, floor: float) -> float:
+    """Reduce the strength of each move edge for Pokemon with huge learnsets.
+
+    The adjustment is 1.0 up to the reference size and then declines
+    logarithmically to a floor. It does not affect evolution or ability edges.
+    """
+    learnable_count = sum(
+        1
+        for generations in answer["move_learnset_generations"].values()
+        if scope == "all-goes" or any(generation <= 5 for generation in generations)
+    )
+    if learnable_count <= reference_move_count:
+        return 1.0
+    return max(floor, math.log(reference_move_count + 1) / math.log(learnable_count + 1))
+
+
+def relationship_score(answer: dict, guess: dict, scope: str, move_scores: dict[str, float], type_score: float, learnset_breadth: dict[str, float]) -> float:
     if guess["category"] == "pokemon":
         return float(bool(set(answer["evolution_family"]) & set(guess["evolution_family"])))
     if guess["category"] == "move":
         if scope == "all-goes":
-            return move_scores.get(guess["name"], 0.0) if guess["name"] in answer["moves"] else 0.0
+            return move_scores.get(guess["name"], 0.0) * learnset_breadth[answer["id"]] if guess["name"] in answer["moves"] else 0.0
         is_learnable = any(generation <= 5 for generation in answer["move_learnset_generations"].get(guess["name"], []))
-        return move_scores.get(guess["name"], 0.0) if is_learnable else 0.0
+        return move_scores.get(guess["name"], 0.0) * learnset_breadth[answer["id"]] if is_learnable else 0.0
     if guess["category"] == "type":
         return type_score if guess["name"] in answer["types"] else 0.0
     return float(guess["name"] in answer["abilities"])
@@ -151,6 +167,10 @@ def main() -> None:
     for scope in ("all-goes", "gen-1-5"):
         candidates = [entity for entity in all_entities if eligible(entity, scope)]
         move_scores = move_relationship_scores(pokemon, scope, config["move_relationship"]["floor"])
+        learnset_breadth = {
+            answer["id"]: learnset_breadth_adjustment(answer, scope, config["learnset_breadth"]["reference_move_count"], config["learnset_breadth"]["floor"])
+            for answer in pokemon if eligible(answer, scope)
+        }
         rows: list[dict] = []
         for answer_name in config["answers"]:
             answer = answers[answer_name]
@@ -159,7 +179,7 @@ def main() -> None:
             semantic = cosine_rows(vector_by_id[answer["id"]], np.asarray([vector_by_id[c["id"]] for c in candidates]))
             scored = []
             for candidate, semantic_score in zip(candidates, semantic):
-                relation = relationship_score(answer, candidate, scope, move_scores, config["type_relationship_score"])
+                relation = relationship_score(answer, candidate, scope, move_scores, config["type_relationship_score"], learnset_breadth)
                 attribute = attribute_score(answer, candidate, stat_ranges, config["matching_move_type_attribute_score"])
                 final = weights["semantic"] * float(semantic_score) + weights["relationship"] * relation + weights["attribute"] * attribute
                 scored.append({

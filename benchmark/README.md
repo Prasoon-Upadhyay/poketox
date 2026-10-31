@@ -28,3 +28,5 @@ The first command that builds data downloads PokéAPI source records and caches 
 `run_large_scale_report.py` evaluates every eligible Pokémon answer and writes an aggregate diagnostic report with direct-relationship rank distributions and diverse sample rankings.
 
 The current experiment uses a rarity-adjusted learnset score: broadly learnable moves retain a moderate relationship bonus, while moves learned by few eligible Pokémon keep a larger bonus. This prevents generic learnsets from overwhelming the ranking without making ordinary valid moves useless.
+
+It also normalizes by the answer Pokémon's learnset breadth: a Pokémon that can learn hundreds of moves does not give every move the same relationship strength as a Pokémon with a short, distinctive learnset.
