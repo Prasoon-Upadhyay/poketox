@@ -12,8 +12,8 @@ from fastapi import HTTPException
 from .ranking import rank_answer
 
 
-ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DATASET = ROOT / "benchmark" / "data" / "entities.json"
+API_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_DATASET = API_ROOT / "data" / "entities.json"
 
 
 def normalize(value: str) -> str:

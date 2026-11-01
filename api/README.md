@@ -2,14 +2,6 @@
 
 FastAPI service for Poketexto. It uses the accepted V6 structured-facts ranker only; the V7 embedding experiments are not imported or used.
 
-## Prerequisite
-
-Build the verified local PokeAPI dataset from the repository root:
-
-```powershell
-python benchmark/build_dataset.py
-```
-
 ## Run
 
 ```powershell
@@ -17,7 +9,7 @@ python -m pip install -r api/requirements.txt
 python -m uvicorn poketox_api.main:app --app-dir api --reload
 ```
 
-The frontend supplies a non-empty, unique selection of generations `1` through `9` when it starts or resets a game. The API derives the eligible Pokémon and guesses from that selection, then keeps the rank table in memory.
+The checked-in gameplay dataset lives at `api/data/entities.json`, so no benchmark tooling or runtime PokeAPI calls are required for deployment. The frontend supplies a non-empty, unique selection of generations `1` through `9` when it starts or resets a game. The API derives the eligible Pokémon and guesses from that selection, then keeps the rank table in memory.
 
 ## Endpoints
 
