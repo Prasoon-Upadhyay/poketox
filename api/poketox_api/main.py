@@ -18,7 +18,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="PokeTox API", version="1.0.0", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"], allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
 
 
 @app.exception_handler(RequestValidationError)
